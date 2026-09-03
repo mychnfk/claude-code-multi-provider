@@ -1,0 +1,16 @@
+{
+  "env": {
+    "ANTHROPIC_CUSTOM_MODEL_OPTION": "claude-fable-5-1",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "Fable 5.1 (relay)",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5[1m]",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "Opus 5 1M",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5[1m]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "Sonnet 5 1M",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-5"
+  },
+  "availableModels": [
+    "opus",
+    "sonnet",
+    "claude-fable-5-1"
+  ]
+}
