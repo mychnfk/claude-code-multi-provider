@@ -19,14 +19,14 @@
 # 供应商模型、env 压档位。让 CONFIG_DIR 里的同一 settings.json 再以 --settings 层
 # (优先级高于项目层)进场一遍即可压回。因此函数必须带 --settings。
 
-function claude-deepseek {
+function claude-ds {
     if [[ -z "$DEEPSEEK_API_KEY" ]]; then
         echo "Error: DEEPSEEK_API_KEY is not set" >&2
         return 1
     fi
-    CLAUDE_CONFIG_DIR="$HOME/.claude-deepseek" \
+    CLAUDE_CONFIG_DIR="$HOME/.claude-ds" \
         ANTHROPIC_API_KEY= ANTHROPIC_AUTH_TOKEN="$DEEPSEEK_API_KEY" \
-        claude --settings "$HOME/.claude-deepseek/settings.json" "$@"
+        claude --settings "$HOME/.claude-ds/settings.json" "$@"
 }
 
 function claude-kimi {

@@ -5,13 +5,13 @@ description: Claude Code 多供应商并行接入架构 v2——CLAUDE_CONFIG_DI
 
 # Claude Code 多供应商并行架构 v2:CONFIG_DIR 物理隔离
 
-默认 `claude` 走自建中转,`claude-glm` / `claude-kimi` / `claude-deepseek` 函数秒切第三方直连,互不污染,`/model` 选择器显示各供应商真实模型名。
+默认 `claude` 走自建中转,`claude-glm` / `claude-kimi` / `claude-ds` 函数秒切第三方直连,互不污染,`/model` 选择器显示各供应商真实模型名。
 
 ```bash
 claude           # 默认:自建中转(sub2api),Claude 全家桶
 claude-glm       # 智谱直连:/model 显示 GLM 5.3 / 5.2 / 5.3 Flash
 claude-kimi      # Kimi 直连:全档位 k3
-claude-deepseek  # DeepSeek 直连:pro 跑主循环,flash 跑小任务
+claude-ds  # DeepSeek 直连:pro 跑主循环,flash 跑小任务
 ```
 
 ## 为什么放弃 v1 的 `--settings` 方案
@@ -43,7 +43,7 @@ v1(2026-09 前使用):每供应商一个 settings 文件,函数里 `claude --set
 ├── plugins  -> ~/.claude/plugins    # symlink 共享(8 个官方插件)
 ├── skills   -> ~/.claude/skills     # symlink 共享
 └── projects/<cwd>/memory -> 主位同路径  # 记忆共享(按工作目录)
-~/.claude-kimi/  ~/.claude-deepseek/ # 同构
+~/.claude-kimi/  ~/.claude-ds/ # 同构
 ```
 
 ### zsh 函数(v2)

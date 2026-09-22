@@ -1,6 +1,6 @@
 # claude-code-multi-provider
 
-> Claude Code 多供应商并行接入方案 v2:默认 `claude` 走自建中转,`claude-glm` / `claude-kimi` / `claude-deepseek` 秒切第三方直连——CONFIG_DIR 物理隔离,互不污染,`/model` 显示真实模型名。
+> Claude Code 多供应商并行接入方案 v2:默认 `claude` 走自建中转,`claude-glm` / `claude-kimi` / `claude-ds` 秒切第三方直连——CONFIG_DIR 物理隔离,互不污染,`/model` 显示真实模型名。
 >
 > A production-tested setup for running Claude Code across multiple Anthropic-compatible providers (self-hosted relay, DeepSeek, Kimi, GLM...) with one-command switching, zero cross-contamination, and real model names in the /model picker.
 
@@ -9,7 +9,7 @@
 ```bash
 claude           # 默认:自建中转(sub2api),Claude 全家桶
 claude-glm       # 智谱直连:/model 显示 GLM 5.3 / 5.2 / 5.3 Flash 真名
-claude-deepseek  # DeepSeek 直连:pro 跑主循环,flash 跑小任务,1M 上下文
+claude-ds  # DeepSeek 直连:pro 跑主循环,flash 跑小任务,1M 上下文
 claude-kimi      # Kimi 直连:全档位 k3
 ```
 
