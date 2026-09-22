@@ -1,8 +1,23 @@
 {
+  "availableModels": [
+    "opus",
+    "sonnet",
+    "haiku",
+    "k3",
+    "k3-256k"
+  ],
   "modelPicker": {
     "options": [
-      {"model": "k3", "label": "Kimi K3", "behavesAs": "claude-sonnet-5"},
-      {"model": "k3-256k", "label": "Kimi K3 256K", "behavesAs": "claude-sonnet-5"}
+      {
+        "model": "k3",
+        "label": "Kimi K3",
+        "behavesAs": "claude-sonnet-5"
+      },
+      {
+        "model": "k3-256k",
+        "label": "Kimi K3 256K",
+        "behavesAs": "claude-sonnet-5"
+      }
     ],
     "replaceBuiltInOptions": true
   },

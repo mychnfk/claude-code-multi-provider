@@ -43,7 +43,7 @@ cp templates/zsh-functions.zsh ~/.config/zsh/zshrc.d/99-claude-providers.zsh
 # 4. 模板 settings-*.json 已带默认端点,按需改成你的
 ```
 
-详细方法论、验证清单(transcript 法)、8 条实测坑见 [SKILL.md](SKILL.md)(可直接作为 Claude Code skill 安装到 `~/.claude/skills/`)。
+详细方法论、验证清单(transcript 法)、11 条实测坑见 [SKILL.md](SKILL.md)(可直接作为 Claude Code skill 安装到 `~/.claude/skills/`)。
 
 ## 扩展第四路
 

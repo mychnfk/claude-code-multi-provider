@@ -14,13 +14,19 @@
 # BASE_URL/模型档位/modelPicker 都在各 CONFIG_DIR 的 settings.json 里
 # =============================================================================
 
+# 注意 --settings 反压:在 ~ 目录下跑时,主 ~/.claude/settings.json 以「项目级」身份
+# 进场(home 的 .claude 目录身兼用户级+项目级双职),其 availableModels 白名单会拦
+# 供应商模型、env 压档位。让 CONFIG_DIR 里的同一 settings.json 再以 --settings 层
+# (优先级高于项目层)进场一遍即可压回。因此函数必须带 --settings。
+
 function claude-deepseek {
     if [[ -z "$DEEPSEEK_API_KEY" ]]; then
         echo "Error: DEEPSEEK_API_KEY is not set" >&2
         return 1
     fi
     CLAUDE_CONFIG_DIR="$HOME/.claude-deepseek" \
-        ANTHROPIC_API_KEY= ANTHROPIC_AUTH_TOKEN="$DEEPSEEK_API_KEY" claude "$@"
+        ANTHROPIC_API_KEY= ANTHROPIC_AUTH_TOKEN="$DEEPSEEK_API_KEY" \
+        claude --settings "$HOME/.claude-deepseek/settings.json" "$@"
 }
 
 function claude-kimi {
@@ -29,7 +35,8 @@ function claude-kimi {
         return 1
     fi
     CLAUDE_CONFIG_DIR="$HOME/.claude-kimi" \
-        ANTHROPIC_API_KEY= ANTHROPIC_AUTH_TOKEN="$KIMI_API_KEY" claude "$@"
+        ANTHROPIC_API_KEY= ANTHROPIC_AUTH_TOKEN="$KIMI_API_KEY" \
+        claude --settings "$HOME/.claude-kimi/settings.json" "$@"
 }
 
 function claude-glm {
@@ -38,5 +45,6 @@ function claude-glm {
         return 1
     fi
     CLAUDE_CONFIG_DIR="$HOME/.claude-glm" \
-        ANTHROPIC_API_KEY= ANTHROPIC_AUTH_TOKEN="$GLM_API_KEY" claude "$@"
+        ANTHROPIC_API_KEY= ANTHROPIC_AUTH_TOKEN="$GLM_API_KEY" \
+        claude --settings "$HOME/.claude-glm/settings.json" "$@"
 }

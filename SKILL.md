@@ -54,9 +54,12 @@ function claude-glm {
         echo "Error: GLM_API_KEY is not set" >&2; return 1
     fi
     CLAUDE_CONFIG_DIR="$HOME/.claude-glm" \
-        ANTHROPIC_API_KEY= ANTHROPIC_AUTH_TOKEN="$GLM_API_KEY" claude "$@"
+        ANTHROPIC_API_KEY= ANTHROPIC_AUTH_TOKEN="$GLM_API_KEY" \
+        claude --settings "$HOME/.claude-glm/settings.json" "$@"
 }
 ```
+
+`--settings` 指回同一文件不是冗余——见坑 9/10:在 home 目录跑时,主 settings.json 以项目级身份进场,必须用 `--settings` 层(优先级高于项目层)把同一份配置再压一遍。
 
 BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export 的值),key 由函数从 Keychain 注入——目录自成一体可进 dotfiles,凭证不落盘。
 
@@ -70,6 +73,9 @@ BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export �
 6. **新 CONFIG_DIR 并发初始化会 exit=1**:多个进程同时首跑同一新目录会撞 `.claude.json` 初始化,单跑即恢复,日常无影响。
 7. **`--debug-file <path>` 是 `-p` 模式下唯一日志出口**(`--debug` 不写 stderr);TUI 在 expect/script 的 pty 下不渲染,抓屏验证 `/model` 界面不可行,只能人眼。
 8. **memory symlink 按工作目录建**:`~/.claude-<p>/projects/<cwd>/memory -> ~/.claude/projects/<cwd>/memory`,新工作目录首次会话后补一条。
+9. **home 目录的 .claude 双职陷阱(必踩)**:`~/.claude/settings.json` 既是用户级配置,又是"home 作为项目目录"的**项目级** `.claude/settings.json`。CONFIG_DIR 只隔离用户层;在 home 下跑供应商会话,主文件以项目级身份再次进场——优先级 local project > shared project > user,项目层的 `availableModels` 白名单和 env 会压过 CONFIG_DIR 里的同名配置。症状:启动警告 `Model "glm-5.3[1m]" is restricted by your organization's settings. Using claude-opus-5[1m] instead`、/model 列表显示的是主文件的行。**对策**:函数里 `--settings "$CONFIG_DIR/settings.json"` 让同一文件以更高优先级层(仅次于 managed)再进场压回。注意在干净目录(如 /tmp)测试时该陷阱不出现——**验证必须在 home 复现真实场景**。
+10. **availableModels 拦的是档位映射目标**:主文件白名单不含 `glm-5.2` 时,`--model sonnet` 的档位值 glm-5.2 被白名单拦下后**回落到主文件的档位值**(claude-sonnet-5)——看起来像"档位被压",其实是"映射目标未放行"。对策:各 CONFIG_DIR 的 settings.json **必须自带 availableModels**(供应商模型全名 + opus/sonnet/haiku 档位名),`--settings` 层的白名单会整体压过项目层。
+11. **每 CONFIG_DIR 首次交互会话会弹一次 trust 对话框**(信任状态按 CONFIG_DIR 分存),接受一次即永久;`-p` 模式不弹但项目层 env/白名单照常应用。
 
 ## 快速开始
 
