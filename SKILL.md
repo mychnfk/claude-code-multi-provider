@@ -1,118 +1,95 @@
 ---
 name: claude-code-multi-provider
-description: Claude Code 多供应商并行接入架构——默认链路零负担,函数级一键切换,凭证/配置/模型三层隔离。当用户要把 Claude Code 同时接入多个 Anthropic 兼容端点(自建中转、DeepSeek、Kimi、GLM 等)、设计供应商热切换、或排查多路配置互相污染时使用。
+description: Claude Code 多供应商并行接入架构 v2——CLAUDE_CONFIG_DIR 物理隔离,默认链路零负担,函数级一键切换。当用户要把 Claude Code 同时接入多个 Anthropic 兼容端点(自建中转、DeepSeek、Kimi、GLM 等)、设计供应商热切换、自定义 /model 选择器(modelPicker 真实模型名)、或排查多路配置互相污染/--settings 不生效时使用。
 ---
 
-# Claude Code 多供应商三路并行架构
+# Claude Code 多供应商并行架构 v2:CONFIG_DIR 物理隔离
 
-一套经过生产验证的 Claude Code 多供应商接入方案:**默认 `claude` 走自建中转,`claude-deepseek` / `claude-kimi` 两个函数秒切备用供应商**,三路并存、互不污染。
+默认 `claude` 走自建中转,`claude-glm` / `claude-kimi` / `claude-deepseek` 函数秒切第三方直连,互不污染,`/model` 选择器显示各供应商真实模型名。
 
-## 设计目标
-
-1. **默认路径零负担**:日常 `claude` 命令行为完全不变
-2. **切换零心智**:想换供应商,换个命令名而已,不需要改任何文件、不需要记环境变量
-3. **污染零容忍**:任何一路的 key、base_url、模型配置,绝不可能漏到另一路
-
-## 核心架构:三层隔离
-
-### 第一层:启动层隔离 —— zsh 函数 + `--settings` 分文件
-
-每个供应商一个 shell 函数,通过 `--settings` 指向**独立的 settings 文件**:
-
-```zsh
-claude          # 默认:主 settings.json + 全局 env(自建中转)
-claude-deepseek # --settings ~/.claude/settings-deepseek.json
-claude-kimi     # --settings ~/.claude/settings-kimi.json
+```bash
+claude           # 默认:自建中转(sub2api),Claude 全家桶
+claude-glm       # 智谱直连:/model 显示 GLM 5.3 / 5.2 / 5.3 Flash
+claude-kimi      # Kimi 直连:全档位 k3
+claude-deepseek  # DeepSeek 直连:pro 跑主循环,flash 跑小任务
 ```
 
-**为什么不能把供应商配置写进主 settings.json**:Claude Code 运行中会**实时回写**主 settings.json(改主题、权限等都会触发)。供应商配置放进去,既容易被回写覆盖,又会污染默认路。独立文件则完全由你掌控。
+## 为什么放弃 v1 的 `--settings` 方案
 
-### 第二层:凭证隔离 —— 显式清空 + 定向注入
+v1(2026-09 前使用):每供应商一个 settings 文件,函数里 `claude --settings ~/.claude/settings-xxx.json`。**在 Claude Code 2.1.278 上失效**,根因实证(transcript + `--debug-file` 逆向):
 
-```zsh
-ANTHROPIC_API_KEY= ANTHROPIC_AUTH_TOKEN="$DEEPSEEK_API_KEY" claude --settings ...
+1. **env 双路径合并不一致**:进程环境变量写入是 `--settings` 后应用(同名键它赢),但 **`/model` 档位解析与 modelPicker 解析走另一条路径,以主 `~/.claude/settings.json` 为准**。主文件 env 里的 `ANTHROPIC_DEFAULT_*` 会压掉 `--settings` 文件的同名键——官方文档声称的优先级(`--settings` > user)与实现不符。
+2. **modelPicker 在 `--settings` 层的实际渲染不可靠**(同一解析路径)。
+3. 唯一幸存的是主文件没定义的键(如 `ANTHROPIC_MODEL`)——这就是"只有 default 模型生效"的机制。
+
+任何 `--settings` 缝补都是在押注未文档化的合并行为。**`CLAUDE_CONFIG_DIR` 是官方 env-vars 文档明确背书的多账号并行原语**("Useful for running multiple accounts side by side"),物理隔离后不存在合并问题。
+
+## v2 架构:四层隔离
+
+```
+启动层   CLAUDE_CONFIG_DIR=<provider目录>     官方多账号原语,settings/projects/登录态全隔离
+凭证层   ANTHROPIC_API_KEY= 显式清空          主路 key 绝不泄给第三方
+         ANTHROPIC_AUTH_TOKEN 定向注入        Keychain 取 key,配置零明文
+模型层   全档位别名 + modelPicker 真名行      opus/sonnet/haiku 档位映射 + /model 显示真实模型名
+共享层   plugins/skills/memory symlink        三路共享插件、技能、跨供应商记忆
 ```
 
-两个动作缺一不可:
+### 目录结构
 
-- `ANTHROPIC_API_KEY=`(**显式置空**):主配置里全局 export 了中转 key。不清空,它会被一起带到 DeepSeek/Kimi——你的中转 key 就泄给了第三方。
-- `ANTHROPIC_AUTH_TOKEN`(定向注入):多数第三方 Anthropic 兼容端点认 Bearer token(AUTH_TOKEN)而非 x-api-key(API_KEY)。两者都设时行为因版本而异,显式清空 + 单一注入是唯一可预测的姿作。
-
-**密钥存储进系统钥匙串,配置零明文**:
-
-```zsh
-# macOS Keychain(先手工存入一次:security add-generic-password -a "$USER" -s "deepseek-api-key" -w "sk-xxx")
-export DEEPSEEK_API_KEY=$(security find-generic-password -a "$USER" -s "deepseek-api-key" -w 2>/dev/null)
+```
+~/.claude                    # 主位:默认路(中转),一个字节不用动
+~/.claude-glm/               # 每供应商一个完整 CONFIG_DIR
+├── settings.json            # BASE_URL + 全档位 env + modelPicker + enabledPlugins + statusLine/hooks
+├── plugins  -> ~/.claude/plugins    # symlink 共享(8 个官方插件)
+├── skills   -> ~/.claude/skills     # symlink 共享
+└── projects/<cwd>/memory -> 主位同路径  # 记忆共享(按工作目录)
+~/.claude-kimi/  ~/.claude-deepseek/ # 同构
 ```
 
-Linux 可用 `secret-tool` / `pass` 等价替换。这样 zsh 配置文件本身可以安全进 dotfiles 仓库。
+### zsh 函数(v2)
 
-### 第三层:模型映射隔离 —— 全档位别名接管
-
-Claude Code 内部**按档位调度模型**:主循环用 opus/sonnet 档,轻量任务(标题生成、压缩、子代理)会调 haiku 档和 SMALL_FAST。只设 `ANTHROPIC_MODEL` 是不够的——小任务会尝试调官方 haiku,在非官方端点上直接 404 或走错模型。
-
-正确姿势是把**所有档位别名都接管**:
-
-```json
-{
-  "env": {
-    "ANTHROPIC_BASE_URL": "https://api.kimi.com/coding",
-    "ANTHROPIC_MODEL": "k3",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "k3",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "k3",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "k3",
-    "ANTHROPIC_SMALL_FAST_MODEL": "k3",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "k3"
-  }
+```zsh
+function claude-glm {
+    if [[ -z "$GLM_API_KEY" ]]; then
+        echo "Error: GLM_API_KEY is not set" >&2; return 1
+    fi
+    CLAUDE_CONFIG_DIR="$HOME/.claude-glm" \
+        ANTHROPIC_API_KEY= ANTHROPIC_AUTH_TOKEN="$GLM_API_KEY" claude "$@"
 }
 ```
 
-想区分档位也可以(如 DeepSeek 路:pro 跑主循环、flash 跑小任务),按档位分别映射即可。
+BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export 的值),key 由函数从 Keychain 注入——目录自成一体可进 dotfiles,凭证不落盘。
 
-### 模型选择器的三个机制(容易搞混)
+## 关键坑(全部实测,2.1.278)
 
-- `availableModels` 是**白名单不是注册表**:只能把选择器筛剩列出的几个,不会新增模型
-- `/model` 默认读客户端内置注册表,走中转时不自动发现远端模型
-- `ANTHROPIC_CUSTOM_MODEL_OPTION` + `..._NAME`:把一个自定义模型 ID 加进选择器(若配了白名单,ID 必须也在白名单里)
+1. **`enabledPlugins` 必须复制到每个 CONFIG_DIR 的 settings.json**——插件启用状态是 settings.json 顶层键,不跟随 plugins/ 目录 symlink。漏了它:8 个插件只认 1 个 builtin,技能数从 24 掉到 15。`installed_plugins.json` 只是它的同步产物。
+2. **modelPicker 行级字段真身是 `{ model, label?, description?, behavesAs? }`**——官方文档(settings-reference)滞后未收录 `behavesAs`,但二进制 schema 实证存在。注意 `labelOverride`/`supports1m`/`prefer1m` 等字段名**不存在**,写了整行被静默丢弃。`behavesAs: "claude-opus-5"` = 借用已知模型的客户端 profile(prompt/能力/effort 默认),是第三方模型进 picker 的关键。
+3. **`ANTHROPIC_SMALL_FAST_MODEL` 已废弃**,统一用 `ANTHROPIC_DEFAULT_HAIKU_MODEL`。
+4. **兼容端点的静默兜底假象**:bigmodel 对不认识的模型名(如误发的 `claude-opus-5`)照样返回正常回复——"能出活"≠"用对模型"。验证只能看 transcript(`~/.claude-<p>/projects/<dir>/*.jsonl` 的 `message.model`)。
+5. **gateway discovery 对第三方直连无效**:`CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` 拉网关 `/v1/models` 后有硬编码 filter `/(claude|anthropic)/i`,非 claude 系模型全滤掉(debug 日志 `0 usable models after filter`)。它只适用于模型名带 claude 的中转。
+6. **新 CONFIG_DIR 并发初始化会 exit=1**:多个进程同时首跑同一新目录会撞 `.claude.json` 初始化,单跑即恢复,日常无影响。
+7. **`--debug-file <path>` 是 `-p` 模式下唯一日志出口**(`--debug` 不写 stderr);TUI 在 expect/script 的 pty 下不渲染,抓屏验证 `/model` 界面不可行,只能人眼。
+8. **memory symlink 按工作目录建**:`~/.claude-<p>/projects/<cwd>/memory -> ~/.claude/projects/<cwd>/memory`,新工作目录首次会话后补一条。
 
-### 体验调优(非必须但推荐)
-
-| 配置 | 作用 |
-|---|---|
-| `API_TIMEOUT_MS: "600000"` | 第三方端点长任务防超时 |
-| `DISABLE_COST_WARNINGS: "1"` | 非官方计价,成本告警是纯噪音 |
-| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"` | 非官方端点关掉遥测等杂流量 |
-
-## 安装
+## 快速开始
 
 ```bash
-# 1. 拷模板
-cp templates/zsh-functions.zsh ~/.config/zsh/zshrc.d/99-claude-providers.zsh  # 按你的 shell 加载方式调整
-cp templates/settings-deepseek.json ~/.claude/settings-deepseek.json
-cp templates/settings-kimi.json ~/.claude/settings-kimi.json
-
-# 2. 密钥进 Keychain
-security add-generic-password -a "$USER" -s "deepseek-api-key" -w "你的key"
-security add-generic-password -a "$USER" -s "kimi-api-key" -w "你的key"
-
-# 3. 按模板注释改成你的端点和模型名,重开终端
+git clone https://github.com/<you>/claude-code-multi-provider
+# 1. 存 key(一次性)
+security add-generic-password -a "$USER" -s "glm-api-key" -w "sk-xxx"
+# 2. 建三个 CONFIG_DIR + symlink + 迁移 enabledPlugins/statusLine/hooks
+bash templates/setup-config-dirs.sh
+# 3. zsh 函数放 shell 启动文件
+cp templates/zsh-functions.zsh ~/.config/zsh/zshrc.d/99-claude-providers.zsh
+# 4. 验证(必须看 transcript,别信响应)
+CLAUDE_CONFIG_DIR="$HOME/.claude-glm" ANTHROPIC_API_KEY= \
+  ANTHROPIC_AUTH_TOKEN="$GLM_API_KEY" claude --model sonnet -p "say ok"
+ls -t ~/.claude-glm/projects/<cwd>/*.jsonl | head -1  # message.model 应为 glm-5.2
 ```
 
-## 验证(重要)
+## 验证清单(每次新供应商/升级 Claude Code 后)
 
-**菜单里有 ≠ 后端能用**。改完验证三层:
-
-1. 配置文件语法:`python3 -m json.tool ~/.claude/settings-deepseek.json`
-2. 端点列模型:`curl $BASE_URL/v1/models -H "x-api-key: $KEY"`
-3. **真实请求**:启动对应命令发一条消息。中转/网关可能有客户端门禁(如"只认 Claude Code 客户端"),裸 curl 被拦不代表 CLI 不通,反之亦然——以真实 CLI 请求为准
-
-## 坑(生产实录)
-
-- **改完必须完全退出 claude 再重开**:env 只在启动时读一次
-- **主 settings.json 会被运行中的 app 回写**:手工编辑前先退出所有会话,否则可能被覆盖回去
-- **`[1m]` 后缀**(如 `deepseek-v4-pro[1m]`)= 请求 1M 上下文 beta header,发给 provider 前会被剥离;带不带后缀只是上下文长度差别
-- **模型优先级**:`/model 命令` > `--model` 参数 > `ANTHROPIC_MODEL` > settings `model` 字段
-
-## 扩展第四路
-
-新供应商只需三步:Keychain 存 key → 复制一份 settings 模板改 BASE_URL 和模型名 → 加一个 12 行的 zsh 函数。架构不需要任何改动——这正是三层隔离的收益。
+- [ ] 默认模型:`-p` 一发,transcript 的 model = 期望值
+- [ ] 三档位:`--model opus/sonnet/haiku` 各一发,transcript 逐一核对(防兜底假象)
+- [ ] 技能数对照:主位与 provider 位 `--debug-file` 里 `Sending N skills` 相等
+- [ ] 人眼看一次 `/model`:真实模型名行 + `replaceBuiltInOptions` 生效

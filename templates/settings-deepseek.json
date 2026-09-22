@@ -1,20 +1,19 @@
 {
-  "effortLevel": "max",
-  "availableModels": [
-    "opus",
-    "sonnet",
-    "haiku",
-    "deepseek-v4-flash[1m]"
-  ],
+  "modelPicker": {
+    "options": [
+      {"model": "deepseek-v4-pro[1m]", "label": "DeepSeek V4 Pro", "behavesAs": "claude-opus-5"},
+      {"model": "deepseek-v4-flash[1m]", "label": "DeepSeek V4 Flash", "behavesAs": "claude-haiku-4-5"},
+      {"model": "deepseek-flash[1m]", "label": "DeepSeek V4.1 Flash", "behavesAs": "claude-sonnet-5"}
+    ],
+    "replaceBuiltInOptions": true
+  },
   "env": {
     "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
     "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro[1m]",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro[1m]",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash[1m]",
-    "ANTHROPIC_SMALL_FAST_MODEL": "deepseek-v4-flash[1m]",
-    "ANTHROPIC_CUSTOM_MODEL_OPTION": "deepseek-v4-flash[1m]",
-    "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "DeepSeek V4 Flash",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION": "deepseek-flash[1m]",
     "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-v4-pro[1m]",
     "CLAUDE_CODE_EFFORT_LEVEL": "max",
     "API_TIMEOUT_MS": "600000",
