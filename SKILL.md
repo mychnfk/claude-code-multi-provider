@@ -9,7 +9,7 @@ description: Claude Code 多供应商并行接入架构 v2——CLAUDE_CONFIG_DI
 
 ```bash
 claude           # 默认:自建中转(sub2api),Claude 全家桶
-claude-glm       # 智谱直连:/model 显示 GLM 5.3 / 5.2 / 5.3 Flash
+claude-glm       # 智谱直连:默认 flash,/model 显示 GLM 5.3 / 5.2 / 5.1
 claude-kimi      # Kimi 直连:全档位 k3
 claude-ds  # DeepSeek 直连:pro 跑主循环,flash 跑小任务
 ```
@@ -76,6 +76,7 @@ BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export �
 9. **home 目录的 .claude 双职陷阱(必踩)**:`~/.claude/settings.json` 既是用户级配置,又是"home 作为项目目录"的**项目级** `.claude/settings.json`。CONFIG_DIR 只隔离用户层;在 home 下跑供应商会话,主文件以项目级身份再次进场——优先级 local project > shared project > user,项目层的 `availableModels` 白名单和 env 会压过 CONFIG_DIR 里的同名配置。症状:启动警告 `Model "glm-5.3[1m]" is restricted by your organization's settings. Using claude-opus-5[1m] instead`、/model 列表显示的是主文件的行。**对策**:函数里 `--settings "$CONFIG_DIR/settings.json"` 让同一文件以更高优先级层(仅次于 managed)再进场压回。注意在干净目录(如 /tmp)测试时该陷阱不出现——**验证必须在 home 复现真实场景**。
 10. **availableModels 拦的是档位映射目标**:主文件白名单不含 `glm-5.2` 时,`--model sonnet` 的档位值 glm-5.2 被白名单拦下后**回落到主文件的档位值**(claude-sonnet-5)——看起来像"档位被压",其实是"映射目标未放行"。对策:各 CONFIG_DIR 的 settings.json **必须自带 availableModels**(供应商模型全名 + opus/sonnet/haiku 档位名),`--settings` 层的白名单会整体压过项目层。
 11. **每 CONFIG_DIR 首次交互会话会弹一次 trust 对话框**(信任状态按 CONFIG_DIR 分存),接受一次即永久;`-p` 模式不弹但项目层 env/白名单照常应用。
+12. **"Effort not supported" 多半是 behavesAs 的 profile 判定**:行借 `claude-haiku-*` profile 时 effort 旋钮直接消失(haiku 家族无 effort 档),与上游无关——GLM-5.3-Flash 换 `behavesAs: claude-sonnet-5` 后实测上游真实返回 thinking 块。另:**默认模型(ANTHROPIC_MODEL)不在 options 里时,Default 行的 effort 旋钮不受 profile 锚点限制、天然可调**——所以"flash 做默认"的最优解是从 options 删掉 flash 行(列表 = Default(=flash) + 旗舰/次旗舰行),既避免"当前默认被追加成裸 ID 行"的显示冗余,effort 也不受限。
 
 ## 快速开始
 

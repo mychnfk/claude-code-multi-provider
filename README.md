@@ -8,7 +8,7 @@
 
 ```bash
 claude           # 默认:自建中转(sub2api),Claude 全家桶
-claude-glm       # 智谱直连:/model 显示 GLM 5.3 / 5.2 / 5.3 Flash 真名
+claude-glm       # 智谱直连:默认 flash,/model 显示 GLM 5.3 / 5.2 / 5.1 真名
 claude-ds  # DeepSeek 直连:pro 跑主循环,flash 跑小任务,1M 上下文
 claude-kimi      # Kimi 直连:全档位 k3
 ```
@@ -43,7 +43,7 @@ cp templates/zsh-functions.zsh ~/.config/zsh/zshrc.d/99-claude-providers.zsh
 # 4. 模板 settings-*.json 已带默认端点,按需改成你的
 ```
 
-详细方法论、验证清单(transcript 法)、11 条实测坑见 [SKILL.md](SKILL.md)(可直接作为 Claude Code skill 安装到 `~/.claude/skills/`)。
+详细方法论、验证清单(transcript 法)、12 条实测坑见 [SKILL.md](SKILL.md)(可直接作为 Claude Code skill 安装到 `~/.claude/skills/`)。
 
 ## 扩展第四路
 

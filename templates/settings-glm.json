@@ -6,7 +6,7 @@
     "glm-5.3[1m]",
     "glm-5.2[1m]",
     "glm-5.1[1m]",
-    "glm-5.3-flash"
+    "glm-5.3-flash[1m]"
   ],
   "modelPicker": {
     "options": [
@@ -24,22 +24,17 @@
         "model": "glm-5.1[1m]",
         "label": "GLM 5.1",
         "behavesAs": "claude-sonnet-5"
-      },
-      {
-        "model": "glm-5.3-flash[1m]",
-        "label": "GLM 5.3 Flash",
-        "behavesAs": "claude-haiku-4-5"
       }
     ],
     "replaceBuiltInOptions": true
   },
   "env": {
     "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic",
-    "ANTHROPIC_MODEL": "glm-5.3[1m]",
+    "ANTHROPIC_MODEL": "glm-5.3-flash[1m]",
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3[1m]",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2[1m]",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3-flash",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "glm-5.3[1m]",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-5.3-flash[1m]",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "glm-5.3-flash[1m]",
     "CLAUDE_CODE_EFFORT_LEVEL": "max",
     "API_TIMEOUT_MS": "600000",
     "DISABLE_COST_WARNINGS": "1"
