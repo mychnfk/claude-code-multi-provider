@@ -24,9 +24,9 @@ function claude-ds {
         echo "Error: DEEPSEEK_API_KEY is not set" >&2
         return 1
     fi
-    CLAUDE_CONFIG_DIR="$HOME/.claude-ds" \
+    CLAUDE_CONFIG_DIR="$HOME/.claude-deepseek" \
         ANTHROPIC_API_KEY= ANTHROPIC_AUTH_TOKEN="$DEEPSEEK_API_KEY" \
-        claude --settings "$HOME/.claude-ds/settings.json" "$@"
+        claude --settings "$HOME/.claude-deepseek/settings.json" "$@"
 }
 
 function claude-kimi {
