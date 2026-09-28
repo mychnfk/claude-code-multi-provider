@@ -33,5 +33,15 @@
     "DISABLE_COST_WARNINGS": "1",
     "ENABLE_TOOL_SEARCH": "FALSE",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read",
+      "Edit(/**)",
+      "Write",
+      "Bash"
+    ],
+    "disableAutoMode": "disable"
   }
 }

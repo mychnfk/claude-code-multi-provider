@@ -63,7 +63,7 @@ function claude-glm {
 
 BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export 的值),key 由函数从 Keychain 注入——目录自成一体可进 dotfiles,凭证不落盘。
 
-## 关键坑(全部实测,2.1.278)
+## 关键坑(全部实测,2.1.278–2.1.280)
 
 1. **`enabledPlugins` 必须复制到每个 CONFIG_DIR 的 settings.json**——插件启用状态是 settings.json 顶层键,不跟随 plugins/ 目录 symlink。漏了它:8 个插件只认 1 个 builtin,技能数从 24 掉到 15。`installed_plugins.json` 只是它的同步产物。
 2. **modelPicker 行级字段真身是 `{ model, label?, description?, behavesAs? }`**——官方文档(settings-reference)滞后未收录 `behavesAs`,但二进制 schema 实证存在。注意 `labelOverride`/`supports1m`/`prefer1m` 等字段名**不存在**,写了整行被静默丢弃。`behavesAs: "claude-opus-5"` = 借用已知模型的客户端 profile(prompt/能力/effort 默认),是第三方模型进 picker 的关键。
@@ -77,6 +77,8 @@ BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export �
 10. **availableModels 拦的是档位映射目标**:主文件白名单不含 `glm-5.2` 时,`--model sonnet` 的档位值 glm-5.2 被白名单拦下后**回落到主文件的档位值**(claude-sonnet-5)——看起来像"档位被压",其实是"映射目标未放行"。对策:各 CONFIG_DIR 的 settings.json **必须自带 availableModels**(供应商模型全名 + opus/sonnet/haiku 档位名),`--settings` 层的白名单会整体压过项目层。
 11. **每 CONFIG_DIR 首次交互会话会弹一次 trust 对话框**(信任状态按 CONFIG_DIR 分存),接受一次即永久;`-p` 模式不弹但项目层 env/白名单照常应用。
 12. **"Effort not supported" 多半是 behavesAs 的 profile 判定**:行借 `claude-haiku-*` profile 时 effort 旋钮直接消失(haiku 家族无 effort 档),与上游无关——GLM-5.3-Flash 换 `behavesAs: claude-sonnet-5` 后实测上游真实返回 thinking 块。另:**默认模型(ANTHROPIC_MODEL)不在 options 里时,Default 行的 effort 旋钮不受 profile 锚点限制、天然可调**——所以"flash 做默认"的最优解是从 options 删掉 flash 行(列表 = Default(=flash) + 旗舰/次旗舰行),既避免"当前默认被追加成裸 ID 行"的显示冗余,effort 也不受限。
+13. **项目层 `permissions.allow` 要过 workspace trust 闸门,home 的 trust 不落盘**(2.1.280 实测):项目 `.claude/settings.json` 里的 allow 规则是"授权性"的,必须先接受 trust 对话框才生效(deny/ask/hooks/env 不受影响);而**在 home 启动时 trust 只在当次会话有效、故意不写盘**——依赖 home 双职蹭项目层 allow 规则 = 每个新会话规则被扣,读写编辑全弹确认。**对策:permissions 块写进各 CONFIG_DIR 的 settings.json(user 层免 trust 闸门)**。规则形状:`Edit(/**)` 一条覆盖 Write/Edit/NotebookEdit 全部文件写入(`Write(path)` 形状不被文件权限检查匹配,bare `Write` 才按工具名匹配,两个都写双保险);受保护路径(.claude/** 等)与危险命令(rm -rf 类)独立于 allow 规则,仍会弹。
+14. **auto mode 对第三方网关结构性不可用,且会被自动打开**(2.1.278–2.1.283 实测链):`ANTHROPIC_BASE_URL` 指向网关时 auto mode 变 asking-by-default;server-side classifier 需要网关透传 `anthropic-beta` 的 safeguards 字段并原样带回 `safeguard_results`——sub2api(白名单+dropSet 体系,safeguards 零支持)和 bigmodel 都不透传 → 无判决=拒绝动作 → denials 累积 → auto mode 暂停回落人工逐条确认;且**进入 auto mode 时宽 allow 规则(bare Bash/Agent 等)被主动丢弃**。2.1.283 起"未配置 defaultMode 的第三方会话默认进 auto mode"。**对策(必做,写进模板)**:user 层显式 `"permissions": {"defaultMode": "acceptEdits", "disableAutoMode": "disable"}`——`defaultMode` 的 auto/bypass 有源限制(只认 user/managed/CLI),项目层写了也不生效;分类器连"用户已在对话里批准的自我提权编辑"都会拦(看不到对话上下文),别指望跟它讲道理。
 
 ## 快速开始
 

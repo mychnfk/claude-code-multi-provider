@@ -38,5 +38,15 @@
     "CLAUDE_CODE_EFFORT_LEVEL": "max",
     "API_TIMEOUT_MS": "600000",
     "DISABLE_COST_WARNINGS": "1"
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read",
+      "Edit(/**)",
+      "Write",
+      "Bash"
+    ],
+    "disableAutoMode": "disable"
   }
 }
