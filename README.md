@@ -21,7 +21,7 @@ claude-kimi      # Kimi 直连:全档位 k3
          ANTHROPIC_AUTH_TOKEN 定向注入     Bearer vs x-api-key 行为可预测
          密钥全部进系统 Keychain           配置文件零明文,可进 dotfiles 仓库
 模型层   全档位别名 + modelPicker 真名行   opus/sonnet/haiku 档位映射 + /model 真名
-共享层   plugins/skills/memory symlink    三路共享插件、技能、跨供应商记忆
+共享层   plugins/skills + 会话池 symlink    插件、技能、跨供应商记忆;会话池共享,任意入口 --resume
 ```
 
 **v1→v2 根因**:v1 的 `claude --settings <file>` 方案在 Claude Code 2.1.278 失效——主 `~/.claude/settings.json` env 块压过 `--settings` 文件的档位别名与 modelPicker 解析(env 写入与 /model 解析是两条合并路径,与官方文档相悖)。`CLAUDE_CONFIG_DIR` 是官方文档明确背书的多账号并行原语,物理隔离后不存在合并问题。完整实证见 [SKILL.md](SKILL.md)。
@@ -34,8 +34,9 @@ security add-generic-password -a "$USER" -s "glm-api-key"      -w "sk-xxx"
 security add-generic-password -a "$USER" -s "deepseek-api-key" -w "sk-xxx"
 security add-generic-password -a "$USER" -s "kimi-api-key"     -w "sk-xxx"
 
-# 2. 建三个 CONFIG_DIR + symlink 共享层 + 迁移 enabledPlugins(幂等)
+# 2. 建三个 CONFIG_DIR + symlink 共享层(插件/技能/会话池) + 迁移 enabledPlugins(幂等)
 bash templates/setup-config-dirs.sh
+#    旧装已有存量会话数据:先跑 bash templates/share-session-pool.sh(硬链接迁移,可回滚)
 
 # 3. zsh 函数就位,重开 shell
 cp templates/zsh-functions.zsh ~/.config/zsh/zshrc.d/99-claude-providers.zsh
@@ -43,7 +44,7 @@ cp templates/zsh-functions.zsh ~/.config/zsh/zshrc.d/99-claude-providers.zsh
 # 4. 模板 settings-*.json 已带默认端点,按需改成你的
 ```
 
-详细方法论、验证清单(transcript 法)、12 条实测坑见 [SKILL.md](SKILL.md)(可直接作为 Claude Code skill 安装到 `~/.claude/skills/`)。
+详细方法论、验证清单(transcript 法)、15 条实测坑见 [SKILL.md](SKILL.md)(可直接作为 Claude Code skill 安装到 `~/.claude/skills/`)。
 
 ## 扩展第四路
 

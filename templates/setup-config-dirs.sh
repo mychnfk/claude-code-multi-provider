@@ -1,29 +1,41 @@
 #!/usr/bin/env bash
-# claude-code-multi-provider v2:初始化各供应商的 CLAUDE_CONFIG_DIR
-# 做四件事:建目录 + symlink 共享层(plugins/skills/memory) + 迁移 enabledPlugins 等体验键 + 放置 settings.json
+# claude-code-multi-provider v2.4:初始化各供应商的 CLAUDE_CONFIG_DIR
+# 做四件事:建目录 + symlink 共享层(plugins/skills/会话池) + 迁移 enabledPlugins 等体验键 + 放置 settings.json
+# v2.4 起共享层含 projects/file-history/session-env(会话池),四入口可跨供应商 --resume;
+# memory 随共享的 projects 自动共享,不再需要逐工作目录补链。
+# 已有存量会话数据的目录不会被动,请跑 templates/share-session-pool.sh 迁移。
 # 幂等,重复跑无害。用法: bash setup-config-dirs.sh
 set -euo pipefail
 
 MAIN_DIR="${HOME}/.claude"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PROVIDERS=(glm kimi deepseek)
-# 常用工作目录(相对 ~/.claude/projects/ 的命名),memory 共享用;新目录首会话后自行补链
-MEMORY_CWDS=("-Users-${USER}" "-Users-${USER}-sub2api")
+
+# 主位共享目录兜底创建
+mkdir -p "${MAIN_DIR}/projects" "${MAIN_DIR}/file-history" "${MAIN_DIR}/session-env"
 
 for p in "${PROVIDERS[@]}"; do
     D="${HOME}/.claude-${p}"
-    mkdir -p "${D}/projects"
+    mkdir -p "$D"
 
     # 共享层:插件与技能 symlink 到主位
     ln -sfn "${MAIN_DIR}/plugins" "${D}/plugins"
     ln -sfn "${MAIN_DIR}/skills"  "${D}/skills"
 
-    # 记忆共享:逐工作目录 symlink memory
-    for cwd in "${MEMORY_CWDS[@]}"; do
-        if [[ -d "${MAIN_DIR}/projects/${cwd}/memory" ]]; then
-            mkdir -p "${D}/projects/${cwd}"
-            ln -sfn "${MAIN_DIR}/projects/${cwd}/memory" "${D}/projects/${cwd}/memory"
+    # 共享会话池(v2.4):projects/file-history/session-env symlink 到主位
+    # 有存量数据的真实目录(非空)不自动动,提示走迁移脚本
+    for d in projects file-history session-env; do
+        if [[ -L "${D}/${d}" ]]; then
+            continue
+        elif [[ -d "${D}/${d}" ]]; then
+            if [[ -z "$(ls -A "${D}/${d}")" ]]; then
+                rmdir "${D}/${d}"
+            else
+                echo "[warn] ${D}/${d} 有存量数据,请跑 templates/share-session-pool.sh"
+                continue
+            fi
         fi
+        ln -sfn "${MAIN_DIR}/${d}" "${D}/${d}"
     done
 
     # settings.json:模板就位;已存在则只补 enabledPlugins/statusLine/hooks/theme 等体验键

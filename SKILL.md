@@ -1,6 +1,6 @@
 ---
 name: claude-code-multi-provider
-description: Claude Code 多供应商并行接入架构 v2——CLAUDE_CONFIG_DIR 物理隔离,默认链路零负担,函数级一键切换。当用户要把 Claude Code 同时接入多个 Anthropic 兼容端点(自建中转、DeepSeek、Kimi、GLM 等)、设计供应商热切换、自定义 /model 选择器(modelPicker 真实模型名)、或排查多路配置互相污染/--settings 不生效时使用。
+description: Claude Code 多供应商并行接入架构 v2——CLAUDE_CONFIG_DIR 物理隔离,默认链路零负担,函数级一键切换,共享会话池支持跨供应商 --resume。当用户要把 Claude Code 同时接入多个 Anthropic 兼容端点(自建中转、DeepSeek、Kimi、GLM 等)、设计供应商热切换、自定义 /model 选择器(modelPicker 真实模型名)、跨供应商恢复会话(resume No conversation found)、或排查多路配置互相污染/--settings 不生效时使用。
 ---
 
 # Claude Code 多供应商并行架构 v2:CONFIG_DIR 物理隔离
@@ -79,6 +79,7 @@ BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export �
 12. **"Effort not supported" 多半是 behavesAs 的 profile 判定**:行借 `claude-haiku-*` profile 时 effort 旋钮直接消失(haiku 家族无 effort 档),与上游无关——GLM-5.3-Flash 换 `behavesAs: claude-sonnet-5` 后实测上游真实返回 thinking 块。另:**默认模型(ANTHROPIC_MODEL)不在 options 里时,Default 行的 effort 旋钮不受 profile 锚点限制、天然可调**——所以"flash 做默认"的最优解是从 options 删掉 flash 行(列表 = Default(=flash) + 旗舰/次旗舰行),既避免"当前默认被追加成裸 ID 行"的显示冗余,effort 也不受限。
 13. **项目层 `permissions.allow` 要过 workspace trust 闸门,home 的 trust 不落盘**(2.1.280 实测):项目 `.claude/settings.json` 里的 allow 规则是"授权性"的,必须先接受 trust 对话框才生效(deny/ask/hooks/env 不受影响);而**在 home 启动时 trust 只在当次会话有效、故意不写盘**——依赖 home 双职蹭项目层 allow 规则 = 每个新会话规则被扣,读写编辑全弹确认。**对策:permissions 块写进各 CONFIG_DIR 的 settings.json(user 层免 trust 闸门)**。规则形状:`Edit(/**)` 一条覆盖 Write/Edit/NotebookEdit 全部文件写入(`Write(path)` 形状不被文件权限检查匹配,bare `Write` 才按工具名匹配,两个都写双保险);受保护路径(.claude/** 等)与危险命令(rm -rf 类)独立于 allow 规则,仍会弹。
 14. **auto mode 对第三方网关结构性不可用,且会被自动打开**(2.1.278–2.1.283 实测链):`ANTHROPIC_BASE_URL` 指向网关时 auto mode 变 asking-by-default;server-side classifier 需要网关透传 `anthropic-beta` 的 safeguards 字段并原样带回 `safeguard_results`——sub2api(白名单+dropSet 体系,safeguards 零支持)和 bigmodel 都不透传 → 无判决=拒绝动作 → denials 累积 → auto mode 暂停回落人工逐条确认;且**进入 auto mode 时宽 allow 规则(bare Bash/Agent 等)被主动丢弃**。2.1.283 起"未配置 defaultMode 的第三方会话默认进 auto mode"。**对策(必做,写进模板)**:user 层显式 `"permissions": {"defaultMode": "acceptEdits", "disableAutoMode": "disable"}`——`defaultMode` 的 auto/bypass 有源限制(只认 user/managed/CLI),项目层写了也不生效;分类器连"用户已在对话里批准的自我提权编辑"都会拦(看不到对话上下文),别指望跟它讲道理。
+15. **CONFIG_DIR 物理隔离同时分裂了会话池**(2.1.280 生产实锤):`--resume` 按 `<CONFIG_DIR>/projects/<cwd>/<id>.jsonl` 找会话,四入口四套池互不可见;且 CC 退出时打印的恢复提示**永远是裸命令名** `claude --resume <id>`(它不知道自己是被函数包着启动的),必然指向官方池。**对策:三个可共享状态目录 symlink 到主位**——`projects`(会话池)/`file-history`(/rewind 检查点)/`session-env`(会话环境),四入口同一会话池,任意会话任意入口 resume(继续会话即切换模型),`--continue` 与 TUI `/resume` 列表同步打通。`sessions/` 是运行中会话的 pid 锁注册表(非历史索引)不用共享;`history.jsonl`(prompt 历史)有意各池隔离。**存量迁移用 `templates/share-session-pool.sh`**,关键:活跃会话的 jsonl 必须**硬链接**而非 mv——同卷 mv 后 fd 虽跟 inode 走,但"mv 后 symlink 前"窗口内按旧路径重开(append 新建文件)会分叉会话,硬链接让新旧路径写同一 inode,窗口归零。**零成本验收**:`ANTHROPIC_BASE_URL=http://127.0.0.1:9 claude --resume <对方池会话id> -p hi`——查找失败**即时**退出打 `No conversation found`,通过则死在 ECONNREFUSED,报错层=判定信号,不花一个 token。
 
 ## 快速开始
 
@@ -86,8 +87,9 @@ BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export �
 git clone https://github.com/<you>/claude-code-multi-provider
 # 1. 存 key(一次性)
 security add-generic-password -a "$USER" -s "glm-api-key" -w "sk-xxx"
-# 2. 建三个 CONFIG_DIR + symlink + 迁移 enabledPlugins/statusLine/hooks
+# 2. 建三个 CONFIG_DIR + symlink 共享层(插件/技能/会话池) + 迁移 enabledPlugins/statusLine/hooks
 bash templates/setup-config-dirs.sh
+#    已有存量会话数据的旧装:先跑 bash templates/share-session-pool.sh 迁移会话池
 # 3. zsh 函数放 shell 启动文件
 cp templates/zsh-functions.zsh ~/.config/zsh/zshrc.d/99-claude-providers.zsh
 # 4. 验证(必须看 transcript,别信响应)
