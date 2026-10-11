@@ -11,12 +11,12 @@
       {
         "model": "k3",
         "label": "Kimi K3",
-        "behavesAs": "claude-sonnet-5"
+        "behavesAs": "claude-sonnet-5-5"
       },
       {
         "model": "k3-256k",
         "label": "Kimi K3 256K",
-        "behavesAs": "claude-sonnet-5"
+        "behavesAs": "claude-sonnet-5-5"
       }
     ],
     "replaceBuiltInOptions": true

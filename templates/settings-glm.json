@@ -13,17 +13,22 @@
       {
         "model": "glm-5.3[1m]",
         "label": "GLM 5.3",
-        "behavesAs": "claude-opus-5"
+        "behavesAs": "claude-opus-5-5"
+      },
+      {
+        "model": "glm-5.3-flash[1m]",
+        "label": "GLM 5.3 Flash",
+        "behavesAs": "claude-sonnet-5-5"
       },
       {
         "model": "glm-5.2[1m]",
         "label": "GLM 5.2",
-        "behavesAs": "claude-sonnet-5"
+        "behavesAs": "claude-sonnet-5-5"
       },
       {
         "model": "glm-5.1[1m]",
         "label": "GLM 5.1",
-        "behavesAs": "claude-sonnet-5"
+        "behavesAs": "claude-sonnet-5-5"
       }
     ],
     "replaceBuiltInOptions": true
