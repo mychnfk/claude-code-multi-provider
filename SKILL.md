@@ -81,6 +81,8 @@ BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export �
 14. **auto mode 对第三方网关结构性不可用,且会被自动打开**(2.1.278–2.1.283 实测链):`ANTHROPIC_BASE_URL` 指向网关时 auto mode 变 asking-by-default;server-side classifier 需要网关透传 `anthropic-beta` 的 safeguards 字段并原样带回 `safeguard_results`——sub2api(白名单+dropSet 体系,safeguards 零支持)和 bigmodel 都不透传 → 无判决=拒绝动作 → denials 累积 → auto mode 暂停回落人工逐条确认;且**进入 auto mode 时宽 allow 规则(bare Bash/Agent 等)被主动丢弃**。2.1.283 起"未配置 defaultMode 的第三方会话默认进 auto mode"。**对策(必做,写进模板)**:user 层显式 `"permissions": {"defaultMode": "acceptEdits", "disableAutoMode": "disable"}`——`defaultMode` 的 auto/bypass 有源限制(只认 user/managed/CLI),项目层写了也不生效;分类器连"用户已在对话里批准的自我提权编辑"都会拦(看不到对话上下文),别指望跟它讲道理。
 15. **CONFIG_DIR 物理隔离同时分裂了会话池**(2.1.280 生产实锤):`--resume` 按 `<CONFIG_DIR>/projects/<cwd>/<id>.jsonl` 找会话,四入口四套池互不可见;且 CC 退出时打印的恢复提示**永远是裸命令名** `claude --resume <id>`(它不知道自己是被函数包着启动的),必然指向官方池。**对策:三个可共享状态目录 symlink 到主位**——`projects`(会话池)/`file-history`(/rewind 检查点)/`session-env`(会话环境),四入口同一会话池,任意会话任意入口 resume(继续会话即切换模型),`--continue` 与 TUI `/resume` 列表同步打通。`sessions/` 是运行中会话的 pid 锁注册表(非历史索引)不用共享;`history.jsonl`(prompt 历史)有意各池隔离。**存量迁移用 `templates/share-session-pool.sh`**,关键:活跃会话的 jsonl 必须**硬链接**而非 mv——同卷 mv 后 fd 虽跟 inode 走,但"mv 后 symlink 前"窗口内按旧路径重开(append 新建文件)会分叉会话,硬链接让新旧路径写同一 inode,窗口归零。**零成本验收**:`ANTHROPIC_BASE_URL=http://127.0.0.1:9 claude --resume <对方池会话id> -p hi`——查找失败**即时**退出打 `No conversation found`,通过则死在 ECONNREFUSED,报错层=判定信号,不花一个 token。
 
+16. **待办工具(TaskCreate/TodoWrite 系)按模型档位禁用,第三方池默认全无**(2.1.233 起,2.1.268 收窄):2.1.233 起 `TaskCreate/Get/Update/List` + `TodoWrite` 在 Opus 4.8 / Sonnet 5 / Fable 5 / Mythos 5 **及更新模型**上不再提供;2.1.268 改为白名单(仅 Claude 3.x、Opus 4.0–4.7、Sonnet 4.0–4.6、Haiku 4.5)。**关键在于第三方池走的是 `behavesAs` 指定的档位规则**,而各家模板普遍借 `claude-opus-5`/`claude-sonnet-5`——**全在排除名单内,所以 glm/kimi/ds 一律没有待办工具**。症状:模型答"本会话没有 TaskCreate";注意 `TaskStop` 仍在,它属后台任务族,与待办**同名不同义**,别据名字判断。**对策(已写进三份模板)**:env 加 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`,独立于档位生效——加完再改 behavesAs 也不会把待办弄没(改之前它**隐式挂在档位上**,换模型会静默弄丢待办)。另:`todoFeatureEnabled` **不是**这个开关,那是已移除的废弃 `.claude.json` 配置项,照着加无效。二进制实证该 env 存在;2026-10-12 glm/kimi/ds 三池实测通过。
+
 ## 快速开始
 
 ```bash
@@ -104,3 +106,4 @@ ls -t ~/.claude-glm/projects/<cwd>/*.jsonl | head -1  # message.model 应为 glm
 - [ ] 三档位:`--model opus/sonnet/haiku` 各一发,transcript 逐一核对(防兜底假象)
 - [ ] 技能数对照:主位与 provider 位 `--debug-file` 里 `Sending N skills` 相等
 - [ ] 人眼看一次 `/model`:真实模型名行 + `replaceBuiltInOptions` 生效
+- [ ] 待办工具:让模型建一条待办,确认没被"本会话没有 TaskCreate"挡回(第三方池靠 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`,默认关)
