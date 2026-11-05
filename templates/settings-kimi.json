@@ -3,32 +3,45 @@
     "opus",
     "sonnet",
     "haiku",
-    "k3",
+    "k3.1-pro[1m]",
+    "k3.1-pro-highspeed[1m]",
+    "k3[1m]",
     "k3-256k"
   ],
   "modelPicker": {
     "options": [
       {
-        "model": "k3",
-        "label": "Kimi K3",
+        "model": "k3.1-pro[1m]",
+        "label": "Kimi K3.1 Pro 1M",
+        "behavesAs": "claude-sonnet-5-5"
+      },
+      {
+        "model": "k3.1-pro-highspeed[1m]",
+        "label": "Kimi K3.1 Pro HS 1M",
+        "behavesAs": "claude-sonnet-5-5"
+      },
+      {
+        "model": "k3[1m]",
+        "label": "Kimi K3 1M",
         "behavesAs": "claude-sonnet-5-5"
       },
       {
         "model": "k3-256k",
-        "label": "Kimi K3 256K",
-        "behavesAs": "claude-sonnet-5-5"
+        "label": "Kimi K3 256K"
       }
     ],
     "replaceBuiltInOptions": true
   },
   "env": {
     "ANTHROPIC_BASE_URL": "https://api.kimi.com/coding",
-    "ANTHROPIC_MODEL": "k3",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "k3",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "k3",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "k3",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "k3",
+    "ANTHROPIC_MODEL": "k3.1-pro[1m]",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "k3.1-pro[1m]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "k3.1-pro[1m]",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "k3.1-pro[1m]",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "k3.1-pro[1m]",
     "CLAUDE_CODE_EFFORT_LEVEL": "max",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "256000",
+    "CLAUDE_CODE_MODEL_CAPABILITIES": "k3-256k=effort,max_effort",
     "API_TIMEOUT_MS": "600000",
     "DISABLE_COST_WARNINGS": "1",
     "ENABLE_TOOL_SEARCH": "FALSE",

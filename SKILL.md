@@ -1,6 +1,6 @@
 ---
 name: claude-code-multi-provider
-description: Claude Code 多供应商并行接入架构 v2——CLAUDE_CONFIG_DIR 物理隔离,默认链路零负担,函数级一键切换,共享会话池支持跨供应商 --resume。当用户要把 Claude Code 同时接入多个 Anthropic 兼容端点(自建中转、DeepSeek、Kimi、GLM 等)、设计供应商热切换、自定义 /model 选择器(modelPicker 真实模型名)、跨供应商恢复会话(resume No conversation found)、或排查多路配置互相污染/--settings 不生效时使用。
+description: Claude Code 多供应商并行接入架构 v2——CLAUDE_CONFIG_DIR 物理隔离,默认链路零负担,函数级一键切换,共享会话池支持跨供应商 --resume。当用户要把 Claude Code 同时接入多个 Anthropic 兼容端点(自建中转、DeepSeek、Kimi、GLM 等)、设计供应商热切换、自定义 /model 选择器(modelPicker 真实模型名)、跨供应商恢复会话(resume No conversation found)、排查多路配置互相污染/--settings 不生效、behavesAs 上下文窗口分母错位(auto-compact 不触发/百分比虚低)、或 max effort 被压级(CLAUDE_CODE_MODEL_CAPABILITIES)时使用。
 ---
 
 # Claude Code 多供应商并行架构 v2:CONFIG_DIR 物理隔离
@@ -63,7 +63,7 @@ function claude-glm {
 
 BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export 的值),key 由函数从 Keychain 注入——目录自成一体可进 dotfiles,凭证不落盘。
 
-## 关键坑(全部实测,2.1.278–2.1.280)
+## 关键坑(全部实测,2.1.278–2.1.303)
 
 1. **`enabledPlugins` 必须复制到每个 CONFIG_DIR 的 settings.json**——插件启用状态是 settings.json 顶层键,不跟随 plugins/ 目录 symlink。漏了它:8 个插件只认 1 个 builtin,技能数从 24 掉到 15。`installed_plugins.json` 只是它的同步产物。
 2. **modelPicker 行级字段真身是 `{ model, label?, description?, behavesAs? }`**——官方文档(settings-reference)滞后未收录 `behavesAs`,但二进制 schema 实证存在。注意 `labelOverride`/`supports1m`/`prefer1m` 等字段名**不存在**,写了整行被静默丢弃。`behavesAs: "claude-opus-5"` = 借用已知模型的客户端 profile(prompt/能力/effort 默认),是第三方模型进 picker 的关键。
@@ -82,6 +82,10 @@ BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export �
 15. **CONFIG_DIR 物理隔离同时分裂了会话池**(2.1.280 生产实锤):`--resume` 按 `<CONFIG_DIR>/projects/<cwd>/<id>.jsonl` 找会话,四入口四套池互不可见;且 CC 退出时打印的恢复提示**永远是裸命令名** `claude --resume <id>`(它不知道自己是被函数包着启动的),必然指向官方池。**对策:三个可共享状态目录 symlink 到主位**——`projects`(会话池)/`file-history`(/rewind 检查点)/`session-env`(会话环境),四入口同一会话池,任意会话任意入口 resume(继续会话即切换模型),`--continue` 与 TUI `/resume` 列表同步打通。`sessions/` 是运行中会话的 pid 锁注册表(非历史索引)不用共享;`history.jsonl`(prompt 历史)有意各池隔离。**存量迁移用 `templates/share-session-pool.sh`**,关键:活跃会话的 jsonl 必须**硬链接**而非 mv——同卷 mv 后 fd 虽跟 inode 走,但"mv 后 symlink 前"窗口内按旧路径重开(append 新建文件)会分叉会话,硬链接让新旧路径写同一 inode,窗口归零。**零成本验收**:`ANTHROPIC_BASE_URL=http://127.0.0.1:9 claude --resume <对方池会话id> -p hi`——查找失败**即时**退出打 `No conversation found`,通过则死在 ECONNREFUSED,报错层=判定信号,不花一个 token。
 
 16. **待办工具(TaskCreate/TodoWrite 系)按模型档位禁用,第三方池默认全无**(2.1.233 起,2.1.268 收窄):2.1.233 起 `TaskCreate/Get/Update/List` + `TodoWrite` 在 Opus 4.8 / Sonnet 5 / Fable 5 / Mythos 5 **及更新模型**上不再提供;2.1.268 改为白名单(仅 Claude 3.x、Opus 4.0–4.7、Sonnet 4.0–4.6、Haiku 4.5)。**关键在于第三方池走的是 `behavesAs` 指定的档位规则**,而各家模板普遍借 `claude-opus-5`/`claude-sonnet-5`——**全在排除名单内,所以 glm/kimi/ds 一律没有待办工具**。症状:模型答"本会话没有 TaskCreate";注意 `TaskStop` 仍在,它属后台任务族,与待办**同名不同义**,别据名字判断。**对策(已写进三份模板)**:env 加 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`,独立于档位生效——加完再改 behavesAs 也不会把待办弄没(改之前它**隐式挂在档位上**,换模型会静默弄丢待办)。另:`todoFeatureEnabled` **不是**这个开关,那是已移除的废弃 `.claude.json` 配置项,照着加无效。二进制实证该 env 存在;2026-10-12 glm/kimi/ds 三池实测通过。
+
+17. **behavesAs 同时决定上下文窗口分母(2.1.303 二进制实证,2026-11-05 k3-256k 事故修复)**:窗口/能力表查询走 behavesAs 映射,内置 catalog 窗口只有两档——200000(4.x 全系+haiku-4-5)与 1e6(5.x 全系,`context:{window:1e6,native_1m:true}`)。**窗口判定链(先命中先 return)**:①`DISABLE_COMPACT=1` 时 `CLAUDE_CODE_MAX_CONTEXT_TOKENS` **全局拦截所有档位(含 1M,红线:配了 MAX_CONTEXT_TOKENS 就别设 DISABLE_COMPACT)** → ②模型名 `/\[1m\]/i` 后缀短路 1e6 → ③能力表(behavesAs) → ④`CLAUDE_CODE_MAX_CONTEXT_TOKENS` fallback(**仅对无 behavesAs 映射的非 claude- 前缀模型生效**,官方认定的未知模型声明路径,不弹 unrecognized 警告) → ⑤默认 200k。`[1m]` 档不受 ④ 污染的原因:② 短路在前。**事故形态(生产实锤)**:k3-256k 档挂 `behavesAs:claude-sonnet-5-5`(native 1M)→ 状态栏 `45k/1M` 百分比虚低 + auto-compact 按 1M 阈值永不触发 → kimi 端 256k 溢出直接 400。**对策**:该行**去掉 behavesAs** + env `CLAUDE_CODE_MAX_CONTEXT_TOKENS=256000`(走 ④ 精确分母;TUI 双验状态栏 `11% (28k/256k)`)。**代价**:失去能力映射,effort 退化 fallback high——救回见坑 18。**连带红线**:未来新增无 `[1m]` 后缀的裸档位,要么带 behavesAs(接受 catalog 窗口两档),要么接受被 env fallback 套。另两个事实:behavesAs **值能力不借名**——label 与实际发送的模型 ID 不变,但窗口/effort/prompt profile 全按映射目标算;kimi 池曾实测换 `behavesAs:claude-sonnet-4-6`(200k)方案被否——会把可用窗口压到 ~160k,废掉 200k~256k 段。auto-compact 按 believed 窗口阈值触发,**分母高估 = compact 永不触发 = 上游溢出 400**,这就是"百分比虚低"不只是显示问题的原因。
+
+18. **第三方模型 max effort 的出口压制与 `CLAUDE_CODE_MODEL_CAPABILITIES` 通用声明(2.1.303 二进制实证,2026-11-05)**:坑 17 对策去掉 behavesAs 后 effort 退化 high 的真凶不是 catalog fallback,而是出口压制 `if(effort==="max" && !modelDeclaresMaxEffort) effort="high"`——**模型无 `max_effort` 能力声明,max 一律被压级**。env `CLAUDE_CODE_EFFORT_LEVEL=max` 优先级本最高(组装链 env 最优先),只卡在这道闸。**解法 = 通用能力声明 env `CLAUDE_CODE_MODEL_CAPABILITIES`**:语法 `模型=cap,cap;模式*=cap`——`;` 分段、`*` 前缀通配、`-cap` 否决、**匹配前剥 `[1m]` 后缀**、判定链排在 catalog 之前。kimi 池实例:`k3-256k=effort,max_effort` → max_effort 声明命中 → 压制闸放行 → env max 原样送达(TUI 标题 `Kimi K3-256K with max effort` 验证)。配套事实:持久层 `effortLevel` schema 仍四档(low~xhigh,**max 写了会被丢弃**——持久钉 max 只能靠 env);`CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=1` 只开 effort 总闸不开 max 档;behavesAs 指到 5.x 档位时 catalog 自带 max_effort,env max 天然生效无需声明(glm/ds 池即此形态)。
 
 ## 快速开始
 
@@ -106,4 +110,5 @@ ls -t ~/.claude-glm/projects/<cwd>/*.jsonl | head -1  # message.model 应为 glm
 - [ ] 三档位:`--model opus/sonnet/haiku` 各一发,transcript 逐一核对(防兜底假象)
 - [ ] 技能数对照:主位与 provider 位 `--debug-file` 里 `Sending N skills` 相等
 - [ ] 人眼看一次 `/model`:真实模型名行 + `replaceBuiltInOptions` 生效
+- [ ] 裸窗口档位(如 k3-256k):状态栏分母 = 真实窗口而非 behavesAs 抬升值(坑 17),auto-compact 阈值随之
 - [ ] 待办工具:让模型建一条待办,确认没被"本会话没有 TaskCreate"挡回(第三方池靠 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`,默认关)
