@@ -1,0 +1,104 @@
+{
+  "_comment": "四池共享段——ccp-sync 深合并到各池。改这里=全池生效。把你的 hooks/statusLine/通用体验键放这里。占位符 __HOME__ 由 ccp-sync 替换为 $HOME。",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '__HOME__/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '__HOME__/.orca/agent-hooks/claude-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '__HOME__/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '__HOME__/.orca/agent-hooks/claude-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '__HOME__/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '__HOME__/.orca/agent-hooks/claude-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '__HOME__/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '__HOME__/.orca/agent-hooks/claude-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '__HOME__/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '__HOME__/.orca/agent-hooks/claude-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '__HOME__/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '__HOME__/.orca/agent-hooks/claude-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 __HOME__/.claude/hooks/auto-allow-memory.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '__HOME__/.orca/agent-hooks/claude-hook.sh' ]; then /bin/sh '__HOME__/.orca/agent-hooks/claude-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash __HOME__/.claude/statusline.sh"
+  },
+  "theme": "auto",
+  "editorMode": "normal",
+  "autoCompactEnabled": true,
+  "cleanupPeriodDays": 180
+}

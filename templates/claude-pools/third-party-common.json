@@ -1,0 +1,22 @@
+{
+  "_comment": "三池共享段(glm/kimi/deepseek 一致的部分)。主池不走此文件。third-party 池共用精简 permissions + 插件列表。",
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "ralph-loop@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Read",
+      "Edit",
+      "Write",
+      "Bash"
+    ],
+    "defaultMode": "acceptEdits",
+    "disableAutoMode": "disable"
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "_pool": "main",
+  "_target": "__HOME__/.claude/settings.json",
+  "_layers": ["common.json"],
+  "_comment": "主池(自建中转):BASE_URL/key 在 shell env 注入(见 zsh-functions.zsh),不在 settings.json。allow 列表按你的积累保留。model 字段故意不声明。",
+  "env": {
+    "ANTHROPIC_CUSTOM_MODEL_OPTION": "claude-fable-5-1[1m]",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "Fable 5.1 1M (relay)",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5[1m]",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "Opus 5.5 1M",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5-5",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "Sonnet 5.5",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-sonnet-5",
+    "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+  "availableModels": [
+    "opus",
+    "sonnet",
+    "claude-fable-5-1"
+  ],
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch",
+      "TaskCreate",
+      "TaskUpdate",
+      "TaskList",
+      "TaskGet",
+      "Agent",
+      "Skill"
+    ],
+    "defaultMode": "acceptEdits",
+    "disableAutoMode": "disable"
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "ralph-loop@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "mattpocock-skills@claude-plugins-official": true
+  },
+  "effortLevel": "high",
+  "modelSettings": {
+    "claude-fable-5-1": {
+      "effortLevel": "xhigh"
+    },
+    "claude-opus-5-5": {
+      "effortLevel": "xhigh"
+    }
+  },
+  "skipWorkflowUsageWarning": true
+}

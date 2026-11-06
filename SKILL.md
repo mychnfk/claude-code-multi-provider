@@ -87,6 +87,54 @@ BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export �
 
 18. **第三方模型 max effort 的出口压制与 `CLAUDE_CODE_MODEL_CAPABILITIES` 通用声明(2.1.303 二进制实证,2026-11-05)**:坑 17 对策去掉 behavesAs 后 effort 退化 high 的真凶不是 catalog fallback,而是出口压制 `if(effort==="max" && !modelDeclaresMaxEffort) effort="high"`——**模型无 `max_effort` 能力声明,max 一律被压级**。env `CLAUDE_CODE_EFFORT_LEVEL=max` 优先级本最高(组装链 env 最优先),只卡在这道闸。**解法 = 通用能力声明 env `CLAUDE_CODE_MODEL_CAPABILITIES`**:语法 `模型=cap,cap;模式*=cap`——`;` 分段、`*` 前缀通配、`-cap` 否决、**匹配前剥 `[1m]` 后缀**、判定链排在 catalog 之前。kimi 池实例:`k3-256k=effort,max_effort` → max_effort 声明命中 → 压制闸放行 → env max 原样送达(TUI 标题 `Kimi K3-256K with max effort` 验证)。配套事实:持久层 `effortLevel` schema 仍四档(low~xhigh,**max 写了会被丢弃**——持久钉 max 只能靠 env);`CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=1` 只开 effort 总闸不开 max 档;behavesAs 指到 5.x 档位时 catalog 自带 max_effort,env max 天然生效无需声明(glm/ds 池即此形态)。
 
+19. **配置管理区分"声明式配置"与"运行时状态"(2026-11-07 ccp-sync 落地实证)**:四池 settings.json 里 `model` 字段是 CC `/model` 命令持久化的**运行时状态**(用户随时在 TUI 里切),其余是**声明式配置**(骨架)。任何"从真相源重新生成 settings.json"的同步工具**必须把 model 字段排除出管理**——否则每次 sync 都冲掉用户当前的 /model 选择,工具在跟用户作对。正确姿势:sync 时从现有落盘文件读回 model 值注入生成物。同类运行时状态还有 trust 对话框的接受记录(按 CONFIG_DIR 分存,见坑 11)。**判断标准:这个字段是"我声明想要的状态"还是"程序/用户运行时写下的状态"?前者进真相源,后者保留。**
+
+## 公共配置层(消除四池漂移,2026-11-07)
+
+四份 settings.json 的 hooks/statusLine/permissions 骨架高度重复,手工维护必然漂移(实证:三池残留已卸载插件的 `superpowers:false`、PermissionRequest 两块顺序不一致)。**公共配置层 = 真相源与生成物分离**:
+
+```
+~/.config/claude-pools/           # 真相源(进版本库,dotfiles)
+├── common.json                   # 四池共享段:hooks/statusLine/theme/cleanupPeriodDays
+├── third-party-common.json       # 三池共享段:精简 permissions + enabledPlugins
+├── pools/
+│   ├── main.json                 # 主池差异:env(中转档位别名)/permissions(46 条积累)/effortLevel
+│   ├── glm.json                  # 各池差异:env(BASE_URL+全档位)/availableModels/modelPicker
+│   ├── kimi.json                 #   + 池特有(kimi: MAX_CONTEXT_TOKENS + MODEL_CAPABILITIES)
+│   └── deepseek.json
+└── ccp-sync.sh                   # 同步器
+~/.claude*/settings.json          # 生成物(ccp-sync 产出,不手改)
+```
+
+**关键设计**:
+- 源文件里 `_pool`/`_target`/`_layers`/`_comment` 是元键(合并后剥离);`__HOME__` 占位符在合并后统一替换为 `$HOME`(让模板可进版本库)。
+- **model 字段不进真相源**(坑 19)——它是 /model 运行时状态,sync 时从落盘读回保留。
+- 深合并是**递归**的(jq `*` 只合第一层,hooks/permissions 嵌套需要递归):对象递归合并,数组/标量右侧覆盖。
+
+**用法**:
+```bash
+# 改了 common.json 或某池 pools/*.json 后:
+bash ~/.config/claude-pools/ccp-sync.sh           # 同步全部四池(写前自动备份 .bak-ccp-<ts>)
+bash ~/.config/claude-pools/ccp-sync.sh --check   # 干跑 diff(语义比较,忽略键序)
+bash ~/.config/claude-pools/ccp-sync.sh glm kimi  # 只同步指定池
+```
+
+**验证**:sync 后二次 `--check` 应全部"无漂移"(幂等)。生成物与手写完全等价,`--settings` 反压语义不变(坑 9/10)——因为反压指向的仍是同一个物理落盘文件。
+
+## 池名可见性(多终端并行分清哪个窗口是哪个池)
+
+四池并行时每个终端窗口长得一样,靠两处低成本设计区分:
+- **statusline 池名前缀**(templates/statusline.sh):从 `$CLAUDE_CONFIG_DIR` 提取池名(CC 主进程 env,statusline 子进程继承——已 `ps eww` 实证),显示 `[kimi]/[glm]/[deepseek]/[main]` 品红前缀。
+- **启动提示行**(zsh-functions.zsh):三函数启动前打印 `→ [kimi] api.kimi.com 直连`(stderr)。
+
+## ccp-doctor(1-token 健康检查 + TTFT)
+
+换 key/新池上架/中转故障时一键验活,替代手拼 curl。`ccp-doctor <main|glm|kimi|deepseek>`(zsh-functions.zsh):
+- 从落盘 settings.json 读 BASE_URL + 默认模型(**剥 `[1m]`**——bigmodel/kimi 直连必须裸名,坑 8b)
+- key 走 Keychain,GLM 探活 timeout 给 90s(首 token 可超 30s)
+- 1-token 流式请求测 TTFT,失败说人话(400=模型名错/401=key 拒/429=配额/5xx=网关故障)
+- **两个实证坑**:①主池 BASE_URL 必须硬编码,不能 `${ANTHROPIC_BASE_URL:-...}` 继承 shell env——跨池终端里跑 doctor 会拿错 URL(实测 kimi env 下 main 被污染成 api.kimi.com);②中转分组若要求 CC 客户端 UA,curl 必须带 `user-agent: claude-cli/...` 否则 503 `this group only allows Claude Code clients`。
+
 ## 快速开始
 
 ```bash
@@ -96,12 +144,20 @@ security add-generic-password -a "$USER" -s "glm-api-key" -w "sk-xxx"
 # 2. 建三个 CONFIG_DIR + symlink 共享层(插件/技能/会话池) + 迁移 enabledPlugins/statusLine/hooks
 bash templates/setup-config-dirs.sh
 #    已有存量会话数据的旧装:先跑 bash templates/share-session-pool.sh 迁移会话池
-# 3. zsh 函数放 shell 启动文件
+# 3. zsh 函数放 shell 启动文件(含 claude-glm/kimi/ds + ccp-doctor)
 cp templates/zsh-functions.zsh ~/.config/zsh/zshrc.d/99-claude-providers.zsh
-# 4. 验证(必须看 transcript,别信响应)
+# 4. (推荐)公共配置层:真相源进 ~/.config/claude-pools,生成四池 settings.json
+mkdir -p ~/.config/claude-pools
+cp -r templates/claude-pools/* ~/.config/claude-pools/
+cp templates/ccp-sync.sh ~/.config/claude-pools/
+cp templates/statusline.sh ~/.claude/statusline.sh   # 带池名前缀
+bash ~/.config/claude-pools/ccp-sync.sh              # 生成四池 settings.json(写前备份)
+# 5. 验证(必须看 transcript,别信响应)
 CLAUDE_CONFIG_DIR="$HOME/.claude-glm" ANTHROPIC_API_KEY= \
   ANTHROPIC_AUTH_TOKEN="$GLM_API_KEY" claude --model sonnet -p "say ok"
 ls -t ~/.claude-glm/projects/<cwd>/*.jsonl | head -1  # message.model 应为 glm-5.2
+# 6. 一键验活四池
+ccp-doctor glm && ccp-doctor kimi && ccp-doctor deepseek && ccp-doctor main
 ```
 
 ## 验证清单(每次新供应商/升级 Claude Code 后)

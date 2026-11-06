@@ -1,0 +1,46 @@
+{
+  "_pool": "deepseek",
+  "_target": "__HOME__/.claude-deepseek/settings.json",
+  "_layers": ["common.json", "third-party-common.json"],
+  "_comment": "model 字段故意不声明——运行时状态由 ccp-sync 从落盘读回。",
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+    "ANTHROPIC_MODEL": "deepseek-flash[1m]",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro[1m]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro[1m]",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-flash[1m]",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-flash[1m]",
+    "API_TIMEOUT_MS": "600000",
+    "DISABLE_COST_WARNINGS": "1",
+    "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+  "effortLevel": "xhigh",
+  "modelSettings": {
+    "deepseek-flash": {
+      "effortLevel": "xhigh"
+    }
+  },
+  "availableModels": [
+    "opus",
+    "sonnet",
+    "haiku",
+    "deepseek-v4-pro[1m]",
+    "deepseek-flash[1m]"
+  ],
+  "modelPicker": {
+    "options": [
+      {
+        "model": "deepseek-v4-pro[1m]",
+        "label": "DeepSeek V4 Pro",
+        "behavesAs": "claude-opus-5-5"
+      },
+      {
+        "model": "deepseek-flash[1m]",
+        "label": "DeepSeek V4.1 Flash",
+        "behavesAs": "claude-sonnet-5-5"
+      }
+    ],
+    "replaceBuiltInOptions": true
+  }
+}
