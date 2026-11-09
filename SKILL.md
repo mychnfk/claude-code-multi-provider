@@ -89,6 +89,8 @@ BASE_URL 写在各目录 settings.json 的 env 块(会覆盖 shell 里 export �
 
 19. **配置管理区分"声明式配置"与"运行时状态"(2026-11-07 ccp-sync 落地实证)**:四池 settings.json 里 `model` 字段是 CC `/model` 命令持久化的**运行时状态**(用户随时在 TUI 里切),其余是**声明式配置**(骨架)。任何"从真相源重新生成 settings.json"的同步工具**必须把 model 字段排除出管理**——否则每次 sync 都冲掉用户当前的 /model 选择,工具在跟用户作对。正确姿势:sync 时从现有落盘文件读回 model 值注入生成物。同类运行时状态还有 trust 对话框的接受记录(按 CONFIG_DIR 分存,见坑 11)。**判断标准:这个字段是"我声明想要的状态"还是"程序/用户运行时写下的状态"?前者进真相源,后者保留。**
 
+20. **嵌套 shell 会继承整组供应商环境,裸 `claude` 不一定回主池(2026-11-10 真实 E2E 实证)**:在 `claude-kimi` 会话的 Bash 工具里再执行 `zsh -ic 'claude ...'`,子 shell 继承父进程的 `CLAUDE_CONFIG_DIR`、`ANTHROPIC_AUTH_TOKEN`、`ANTHROPIC_MODEL`、各 `ANTHROPIC_DEFAULT_*` 等;实测裸主池命令把 kimi token 发到 stariver 并 401。日常另开终端不受影响,但"会话里再启动另一个池"会串味。**对策:shell 启动文件在设主池 BASE_URL/API_KEY 前,显式 `unset CLAUDE_CONFIG_DIR ANTHROPIC_AUTH_TOKEN ANTHROPIC_MODEL ANTHROPIC_DEFAULT_* CLAUDE_CODE_SUBAGENT_MODEL CLAUDE_CODE_EFFORT_LEVEL CLAUDE_CODE_MAX_CONTEXT_TOKENS CLAUDE_CODE_MODEL_CAPABILITIES ENABLE_TOOL_SEARCH`**(模板已带完整清单),让新 shell 默认归主池;provider 函数随后在单进程环境定向注入。注意 `ANTHROPIC_AUTH_TOKEN` 必须 **unset**,`export ANTHROPIC_AUTH_TOKEN=` 空串仍会让 CC 选择空 Bearer、忽略 API_KEY(实测仍 401)。修复后同场景主池 sonnet 返回 ok,glm/kimi/ds 三函数回归均正确。
+
 ## 公共配置层(消除四池漂移,2026-11-07)
 
 四份 settings.json 的 hooks/statusLine/permissions 骨架高度重复,手工维护必然漂移(实证:三池残留已卸载插件的 `superpowers:false`、PermissionRequest 两块顺序不一致)。**公共配置层 = 真相源与生成物分离**:

@@ -49,7 +49,7 @@ cp templates/statusline.sh ~/.claude/statusline.sh   # statusline 带池名前�
 bash ~/.config/claude-pools/ccp-sync.sh              # 生成四池 settings.json(写前备份)
 ```
 
-详细方法论、验证清单(transcript 法)、19 条实测坑见 [SKILL.md](SKILL.md)(可直接作为 Claude Code skill 安装到 `~/.claude/skills/`)。
+详细方法论、验证清单(transcript 法)、20 条实测坑见 [SKILL.md](SKILL.md)(可直接作为 Claude Code skill 安装到 `~/.claude/skills/`)。
 
 ## 运维工具
 

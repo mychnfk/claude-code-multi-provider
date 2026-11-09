@@ -8,6 +8,17 @@
 #   security add-generic-password -a "$USER" -s "glm-api-key"      -w "sk-xxx"
 
 # 默认路(自建中转)的 BASE_URL/key 在主 ~/.claude/settings.json 与 shell env,不走本文件。
+# 交互 shell 启动时默认回主池:清除父进程可能带入的第三方运行态,避免在 provider
+# 会话的嵌套 shell 里敲裸 claude 时沿用对方的 CONFIG_DIR/模型/key(坑 20)。
+# AUTH_TOKEN 必须 unset 而非 export 空串:空 Bearer 仍会压过 API_KEY。
+unset CLAUDE_CONFIG_DIR ANTHROPIC_AUTH_TOKEN ANTHROPIC_MODEL \
+      ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL_NAME \
+      ANTHROPIC_DEFAULT_SONNET_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL_NAME \
+      ANTHROPIC_DEFAULT_HAIKU_MODEL \
+      ANTHROPIC_CUSTOM_MODEL_OPTION ANTHROPIC_CUSTOM_MODEL_OPTION_NAME \
+      CLAUDE_CODE_SUBAGENT_MODEL CLAUDE_CODE_EFFORT_LEVEL \
+      CLAUDE_CODE_MAX_CONTEXT_TOKENS CLAUDE_CODE_MODEL_CAPABILITIES \
+      ENABLE_TOOL_SEARCH
 
 # =============================================================================
 # 供应商函数:CONFIG_DIR 指向 ~/.claude-<provider>,key 定向注入
